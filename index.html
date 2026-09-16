@@ -275,6 +275,10 @@
         // --- 1. 形ごとのスクイーズデータ（質感・形・サウンド） ---
         const SQUISHIES = [
             { 
+                id: 'crispy_bag', name: 'パリパリ袋スクイーズ', icon: '🛍️', gachaId: 'normal', type: 'peach', 
+                soundName: '🛍️ パリパリフィルム音', soundType: 'crinkle_bag', color: 0xffb7b2 
+            },
+            { 
                 id: 'peach', name: '桃色ぷにたま', icon: '🍑', gachaId: 'normal', type: 'peach', 
                 soundName: '💧 もっちり水感音', soundType: 'moist_squish', color: 0xffa0b4 
             },
@@ -301,15 +305,15 @@
         ];
 
         const GACHAS = [
-            { id: 'normal', name: 'ノーマルガチャ', cost: 50, desc: '水感＆生地テイストのスクイーズ' },
+            { id: 'normal', name: 'ノーマルガチャ', cost: 50, desc: 'パリパリ袋＆水感テイストのスクイーズ' },
             { id: 'sweets', name: 'スイーツガチャ', cost: 150, desc: 'マカロンや星の贅沢な感触' },
             { id: 'premium', name: 'プレミアムガチャ', cost: 400, desc: '黄金＆輝くクリスタル限定！' }
         ];
 
         let state = {
             coins: 0,
-            unlocked: ['peach'],
-            equipped: 'peach'
+            unlocked: ['crispy_bag'],
+            equipped: 'crispy_bag'
         };
 
         // --- 2. リアルタイム音響合成（Web Audio API） ---
@@ -326,7 +330,35 @@
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
 
-            if (soundType === 'moist_squish') {
+            if (soundType === 'crinkle_bag') {
+                // 🛍️ ビニール袋・フィルムをくしゃくしゃ揉む「ガサガサ・パリパリ」音
+                const numCrinkles = 6 + Math.floor(Math.random() * 5);
+                for (let i = 0; i < numCrinkles; i++) {
+                    const delay = now + Math.random() * 0.14;
+                    const bufSize = audioCtx.sampleRate * (0.008 + Math.random() * 0.015);
+                    const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let j = 0; j < bufSize; j++) {
+                        data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufSize * 0.3));
+                    }
+
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(1800 + Math.random() * 3500, delay);
+
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime((0.35 + Math.random() * 0.35) * intensity, delay);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    noise.start(delay);
+                }
+            } else if (soundType === 'moist_squish') {
                 // 🍑 水分たっぷりの「ジュワッ・ぐにゃっ」音
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -337,7 +369,6 @@
                 gain.gain.setValueAtTime(0.4 * intensity, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
-                // 水分を含んだクラッシュノイズ
                 const bufSize = audioCtx.sampleRate * 0.06;
                 const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
@@ -524,7 +555,6 @@
                 case 'peach':
                 default:
                     const geomPeach = new THREE.SphereGeometry(1.25, 64, 64);
-                    // 上部を少し窪ませて桃っぽい形にする
                     const pos = geomPeach.attributes.position.array;
                     for (let i = 0; i < pos.length; i += 3) {
                         if (pos[i+1] > 0.6) {
@@ -551,7 +581,6 @@
                 velocities[i] = 0;
             }
 
-            // リアルで可愛いスクイーズ質感
             const material = new THREE.MeshPhysicalMaterial({
                 color: itemData.color,
                 roughness: itemData.rough !== undefined ? itemData.rough : 0.12,
@@ -658,10 +687,8 @@
                 controls.enabled = false;
                 deformAtPoint(res.hit.point, 0.55);
                 
-                // 形に応じた音を鳴らす
                 playSquishSound(activeSquishyData.soundType, 1.0);
                 
-                // コイン加算＆演出
                 addCoins(10);
                 spawnCoinPop(res.x, res.y, 10);
             }
@@ -786,7 +813,7 @@
         }
 
         // 初期設定
-        equipSquishy('peach');
+        equipSquishy('crispy_bag');
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
