@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Squishy Toy - ぷにぷにスクイーズ</title>
+    <title>3D Squishy Gacha - ぷにぷにスクイーズガチャ</title>
     <style>
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
             background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
             user-select: none;
         }
 
@@ -19,83 +20,320 @@
             height: 100vh;
         }
 
-        .ui-container {
+        /* ヘッダー UI */
+        .header-ui {
             position: absolute;
-            top: 20px;
+            top: 25px;
             left: 50%;
             transform: translateX(-50%);
-            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             pointer-events: none;
+            z-index: 10;
         }
 
-        h1 {
-            color: #555;
-            margin: 0 0 10px 0;
-            font-size: 24px;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        .coin-box {
+            background: rgba(255, 255, 255, 0.85);
+            padding: 10px 24px;
+            border-radius: 30px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(8px);
+            font-size: 22px;
+            font-weight: bold;
+            color: #d4a373;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
         }
 
-        p {
-            color: #777;
-            margin: 0;
-            font-size: 14px;
+        .sub-text {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #666;
             background: rgba(255, 255, 255, 0.6);
-            padding: 6px 16px;
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
+            padding: 4px 14px;
+            border-radius: 15px;
         }
 
-        .controls {
+        /* アクションボタン */
+        .bottom-ui {
             position: absolute;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 10px;
+            gap: 15px;
+            z-index: 10;
         }
 
-        button {
+        .btn-action {
             background: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 25px;
             font-weight: bold;
+            font-size: 16px;
             color: #555;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
             cursor: pointer;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        .btn-action:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
         }
 
-        button:active {
-            transform: translateY(1px);
+        .btn-action:active { transform: translateY(1px); }
+
+        /* モーダルダイアログ */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
         }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-title {
+            margin-top: 0;
+            font-size: 20px;
+            color: #444;
+            text-align: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px; right: 20px;
+            border: none; background: none;
+            font-size: 24px; cursor: pointer; color: #aaa;
+        }
+
+        /* ガチャカード */
+        .gacha-card {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 2px solid #eee;
+        }
+
+        .gacha-info h4 { margin: 0 0 4px 0; color: #333; }
+        .gacha-info p { margin: 0; font-size: 12px; color: #888; }
+        
+        .btn-draw {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 10px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255,154,158,0.4);
+        }
+
+        .btn-draw:disabled {
+            background: #ccc;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* コレクション一覧 */
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .item-card {
+            background: #f0f0f0;
+            border-radius: 12px;
+            padding: 12px 6px;
+            text-align: center;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .item-card.unlocked { background: #e3f2fd; }
+        .item-card.equipped { border-color: #2196f3; background: #bbdefb; }
+        .item-card.locked { opacity: 0.4; cursor: not-allowed; }
+        .item-icon { font-size: 30px; margin-bottom: 4px; }
+        .item-name { font-size: 11px; font-weight: bold; color: #444; }
+
+        /* ガチャ演出ポップアップ */
+        .result-popup {
+            text-align: center;
+            padding: 20px;
+        }
+        .result-icon { font-size: 70px; animation: bounce 0.6s ease infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
     </style>
-    <!-- Three.js (3D描画ライブラリ) -->
+    <!-- Three.js & Controls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- OrbitControls (視点操作ライブラリ) -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <div class="ui-container">
-        <h1>✨ ぷにぷにスクイーズ ✨</h1>
-        <p>ドラッグして変形！ 離すとモチッと戻るよ</p>
+    <div class="header-ui">
+        <div class="coin-box">
+            <span>🪙</span> <span id="coin-count">0</span> G
+        </div>
+        <div class="sub-text">スクイーズをぷにぷに揉むとお金が増えるよ！</div>
     </div>
 
-    <div class="controls">
-        <button id="btn-color">🎨 色を変える</button>
-        <button id="btn-reset">🔄 かたちを戻す</button>
+    <div class="bottom-ui">
+        <button class="btn-action" id="open-gacha">🎰 ガチャ</button>
+        <button class="btn-action" id="open-collection">🧸 もちもの</button>
+    </div>
+
+    <!-- ガチャモーダル -->
+    <div class="modal-overlay" id="modal-gacha">
+        <div class="modal">
+            <button class="close-btn" onclick="closeModal('modal-gacha')">×</button>
+            <h3 class="modal-title">✨ スクイーズガチャ ✨</h3>
+            <div id="gacha-list"></div>
+        </div>
+    </div>
+
+    <!-- コレクションモーダル -->
+    <div class="modal-overlay" id="modal-collection">
+        <div class="modal">
+            <button class="close-btn" onclick="closeModal('modal-collection')">×</button>
+            <h3 class="modal-title">🧸 あなたのコレクション</h3>
+            <div class="collection-grid" id="collection-list"></div>
+        </div>
+    </div>
+
+    <!-- 結果モーダル -->
+    <div class="modal-overlay" id="modal-result">
+        <div class="modal result-popup">
+            <div class="result-icon" id="result-icon">🎁</div>
+            <h2 id="result-title">NEW SQUISHY!</h2>
+            <p id="result-name" style="font-weight: bold; color: #e91e63; font-size: 18px;"></p>
+            <button class="btn-action" style="margin: 20px auto 0;" onclick="closeModal('modal-result')">さわる！</button>
+        </div>
     </div>
 
     <div id="canvas-container"></div>
 
     <script>
-        // --- 1. 基本セットアップ ---
+        // --- 1. スクイーズデータ定義 ---
+        const SQUISHIES = [
+            { id: 'pink_sphere', name: '桃色ぷにたま', icon: '🌸', gachaId: 'normal', type: 'sphere', color: 0xff85a1 },
+            { id: 'mint_sphere', name: 'ミントグミ', icon: '🌿', gachaId: 'normal', type: 'sphere', color: 0x70d6ff },
+            { id: 'soft_cube', name: 'マシュマロブロック', icon: '🧊', gachaId: 'normal', type: 'cube', color: 0xffd670 },
+            { id: 'donut', name: 'いちごドーナツ', icon: '🍩', gachaId: 'sweets', type: 'donut', color: 0xff70a6 },
+            { id: 'star_candy', name: 'こんぺいとう', icon: '⭐', gachaId: 'sweets', type: 'star', color: 0xe9ff70 },
+            { id: 'gold_egg', name: '黄金のぷにたま', icon: '👑', gachaId: 'premium', type: 'sphere', color: 0xffd700, metal: 0.8, rough: 0.2 },
+            { id: 'crystal', name: '宇宙のクリスタル', icon: '💎', gachaId: 'premium', type: 'crystal', color: 0xa594f9, trans: 0.4 }
+        ];
+
+        const GACHAS = [
+            { id: 'normal', name: 'ノーマルガチャ', cost: 50, desc: 'ベーシックなぷにぷにスクイーズ' },
+            { id: 'sweets', name: 'スイーツガチャ', cost: 150, desc: 'おいしそうなドーナツやキャンディ' },
+            { id: 'premium', name: 'プレミアムガチャ', cost: 500, desc: '超ごーじゃす＆キラキラな限定スクイーズ' }
+        ];
+
+        // --- 2. ゲーム状態 ---
+        let state = {
+            coins: 0,
+            unlocked: ['pink_sphere'],
+            equipped: 'pink_sphere'
+        };
+
+        // --- 3. Web Audio API（リアル音効） ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // 気持ちいいぷにぷにサウンド
+        function playSquishSound(intensity = 1.0) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            const now = audioCtx.currentTime;
+            
+            // ピッチのぐにゃっと下がる動き
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(180 + Math.random() * 40, now);
+            osc.frequency.exponentialRampToValueAtTime(80 + Math.random() * 20, now + 0.15);
+
+            // フィルター（こもった質感）
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(400, now);
+            filter.frequency.linearRampToValueAtTime(150, now + 0.15);
+
+            // 音量包絡線
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.3 * intensity, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.16);
+        }
+
+        // ファンファーレ音
+        function playFanfareSound() {
+            if (!audioCtx) return;
+            const notes = [261.63, 329.63, 392.00, 523.25];
+            notes.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const now = audioCtx.currentTime + idx * 0.08;
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            });
+        }
+
+        // --- 4. 3D グラフィックス（Three.js） ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
 
@@ -106,63 +344,26 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.rotateSpeed = 0.8;
 
-        // --- 2. ライティング（照明） ---
+        // ライティング
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
 
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(5, 10, 7);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 1024;
-        dirLight.shadow.mapSize.height = 1024;
         scene.add(dirLight);
 
         const pointLight = new THREE.PointLight(0xffb6c1, 0.5, 10);
         pointLight.position.set(-3, -3, 2);
         scene.add(pointLight);
 
-        // --- 3. スクイーズ（メッシュ）の作成 ---
-        // 高密度な球体ジオメトリ（頂点を多くして柔らかくする）
-        const geometry = new THREE.SphereGeometry(1.2, 64, 64);
-        
-        // 元の頂点座標と現在の速度データを保持する配列
-        const positionAttr = geometry.attributes.position;
-        const originalPositions = new Float32Array(positionAttr.array.length);
-        const velocities = new Float32Array(positionAttr.array.length);
-
-        for (let i = 0; i < positionAttr.array.length; i++) {
-            originalPositions[i] = positionAttr.array[i];
-            velocities[i] = 0;
-        }
-
-        // ツヤと透明感のあるぷにぷにマテリアル（材質）
-        const colors = [0xff70a6, 0xff9770, 0xffd670, 0xe9ff70, 0x70d6ff, 0xa594f9];
-        let colorIndex = 0;
-
-        const material = new THREE.MeshPhysicalMaterial({
-            color: colors[0],
-            roughness: 0.15,
-            metalness: 0.05,
-            transmission: 0.1, // ほんのり半透明
-            thickness: 0.5,
-            clearcoat: 0.3,    // 表面の光沢
-            clearcoatRoughness: 0.1,
-        });
-
-        const squishy = new THREE.Mesh(geometry, material);
-        squishy.castShadow = true;
-        squishy.receiveShadow = true;
-        scene.add(squishy);
-
-        // 床の影（リアル感アップ）
+        // 床の影
         const shadowPlane = new THREE.Mesh(
             new THREE.PlaneGeometry(10, 10),
             new THREE.ShadowMaterial({ opacity: 0.15 })
@@ -172,44 +373,85 @@
         shadowPlane.receiveShadow = true;
         scene.add(shadowPlane);
 
-        // --- 4. 物理演算（弾力・復元力のシミュレーション） ---
-        const damping = 0.88;    // 減衰（空気抵抗的な）
-        const stiffness = 0.08;  // 戻る力（硬さ）
+        // メッシュと物理バッファ
+        let currentMesh = null;
+        let originalPositions = null;
+        let velocities = null;
+        let currentGeometry = null;
+
+        function buildGeometry(type) {
+            switch(type) {
+                case 'cube': return new THREE.BoxGeometry(1.6, 1.6, 1.6, 32, 32, 32);
+                case 'donut': return new THREE.TorusGeometry(1.0, 0.45, 32, 64);
+                case 'star': return new THREE.OctahedronGeometry(1.3, 4);
+                case 'crystal': return new THREE.DodecahedronGeometry(1.2, 3);
+                default: return new THREE.SphereGeometry(1.2, 64, 64);
+            }
+        }
+
+        function createSquishyMesh(itemData) {
+            if (currentMesh) scene.remove(currentMesh);
+
+            currentGeometry = buildGeometry(itemData.type);
+            const posAttr = currentGeometry.attributes.position;
+            originalPositions = new Float32Array(posAttr.array.length);
+            velocities = new Float32Array(posAttr.array.length);
+
+            for (let i = 0; i < posAttr.array.length; i++) {
+                originalPositions[i] = posAttr.array[i];
+                velocities[i] = 0;
+            }
+
+            const material = new THREE.MeshPhysicalMaterial({
+                color: itemData.color,
+                roughness: itemData.rough !== undefined ? itemData.rough : 0.15,
+                metalness: itemData.metal !== undefined ? itemData.metal : 0.05,
+                transmission: itemData.trans !== undefined ? itemData.trans : 0.05,
+                thickness: 0.5,
+                clearcoat: 0.4,
+                clearcoatRoughness: 0.1
+            });
+
+            currentMesh = new THREE.Mesh(currentGeometry, material);
+            currentMesh.castShadow = true;
+            scene.add(currentMesh);
+        }
+
+        // 変形＆復元シミュレーション
+        const damping = 0.86;
+        const stiffness = 0.09;
 
         function updateDeformation() {
-            const positions = geometry.attributes.position.array;
+            if (!currentGeometry) return;
+            const positions = currentGeometry.attributes.position.array;
 
             for (let i = 0; i < positions.length; i += 3) {
-                // 元の位置との差分
                 const dx = originalPositions[i] - positions[i];
                 const dy = originalPositions[i + 1] - positions[i + 1];
                 const dz = originalPositions[i + 2] - positions[i + 2];
 
-                // バネの法則（復元力）
                 velocities[i] += dx * stiffness;
                 velocities[i + 1] += dy * stiffness;
                 velocities[i + 2] += dz * stiffness;
 
-                // 速度の減衰
                 velocities[i] *= damping;
                 velocities[i + 1] *= damping;
                 velocities[i + 2] *= damping;
 
-                // 座標の更新
                 positions[i] += velocities[i];
                 positions[i + 1] += velocities[i + 1];
                 positions[i + 2] += velocities[i + 2];
             }
 
-            geometry.attributes.position.needsUpdate = true;
-            geometry.computeVertexNormals(); // 影の計算を更新
+            currentGeometry.attributes.position.needsUpdate = true;
+            currentGeometry.computeVertexNormals();
         }
 
-        // --- 5. インタラクション（つねる・凹ます操作） ---
+        // 凹まし処理
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let isDragging = false;
-        let selectedVertexIndex = null;
+        let lastDeformTime = 0;
 
         function getIntersection(event) {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -222,33 +464,24 @@
             mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(squishy);
+            const intersects = raycaster.intersectObject(currentMesh);
             return intersects.length > 0 ? intersects[0] : null;
         }
 
-        function deformAtPoint(intersectPoint, force = 0.4, radius = 0.8) {
-            const positions = geometry.attributes.position.array;
-            const worldMatrix = squishy.matrixWorld;
-            const localPoint = intersectPoint.clone().applyMatrix4(squishy.matrixWorld.clone().invert());
+        function deformAtPoint(point, force = 0.45, radius = 0.8) {
+            const positions = currentGeometry.attributes.position.array;
+            const localPoint = point.clone().applyMatrix4(currentMesh.matrixWorld.clone().invert());
 
             for (let i = 0; i < positions.length; i += 3) {
                 const vx = positions[i];
                 const vy = positions[i + 1];
                 const vz = positions[i + 2];
 
-                const dist = Math.sqrt(
-                    (vx - localPoint.x) ** 2 +
-                    (vy - localPoint.y) ** 2 +
-                    (vz - localPoint.z) ** 2
-                );
+                const dist = Math.sqrt((vx - localPoint.x) ** 2 + (vy - localPoint.y) ** 2 + (vz - localPoint.z) ** 2);
 
                 if (dist < radius) {
-                    // 触った箇所をへこませる/引っぱる計算
                     const effect = (1 - dist / radius) * force;
-                    
-                    // 押し込み方向（中心に向かって凹ませる）
                     const normal = new THREE.Vector3(vx, vy, vz).normalize();
-                    
                     velocities[i] -= normal.x * effect;
                     velocities[i + 1] -= normal.y * effect;
                     velocities[i + 2] -= normal.z * effect;
@@ -256,13 +489,16 @@
             }
         }
 
-        // マウス／タッチイベントの登録
+        // --- 5. タッチ・クリック操作＆マネー獲得 ---
         window.addEventListener('pointerdown', (e) => {
+            initAudio();
             const hit = getIntersection(e);
             if (hit) {
                 isDragging = true;
-                controls.enabled = false; // つまんでいる間はカメラ回転をオフ
+                controls.enabled = false;
                 deformAtPoint(hit.point, 0.5);
+                playSquishSound(1.0);
+                addCoins(10); // 揉むと10G獲得！
             }
         });
 
@@ -271,51 +507,138 @@
                 const hit = getIntersection(e);
                 if (hit) {
                     deformAtPoint(hit.point, 0.2);
+                    const now = Date.now();
+                    if (now - lastDeformTime > 120) {
+                        playSquishSound(0.5);
+                        addCoins(2);
+                        lastDeformTime = now;
+                    }
                 }
             }
         });
 
         window.addEventListener('pointerup', () => {
             isDragging = false;
-            controls.enabled = true; // カメラ回転を再度有効化
+            controls.enabled = true;
         });
 
-        // UI ボタンの処理
-        document.getElementById('btn-color').addEventListener('click', () => {
-            colorIndex = (colorIndex + 1) % colors.length;
-            material.color.setHex(colors[colorIndex]);
-        });
+        function addCoins(amount) {
+            state.coins += amount;
+            document.getElementById('coin-count').textContent = state.coins;
+            updateGachaUI();
+        }
 
-        document.getElementById('btn-reset').addEventListener('click', () => {
-            const positions = geometry.attributes.position.array;
-            for (let i = 0; i < positions.length; i++) {
-                positions[i] = originalPositions[i];
-                velocities[i] = 0;
+        // --- 6. モーダル＆ガチャ・コレクション制御 ---
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+            if (id === 'modal-gacha') renderGachaList();
+            if (id === 'modal-collection') renderCollectionList();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        document.getElementById('open-gacha').addEventListener('click', () => openModal('modal-gacha'));
+        document.getElementById('open-collection').addEventListener('click', () => openModal('modal-collection'));
+
+        function renderGachaList() {
+            const list = document.getElementById('gacha-list');
+            list.innerHTML = '';
+            GACHAS.forEach(g => {
+                const canAfford = state.coins >= g.cost;
+                const div = document.createElement('div');
+                div.className = 'gacha-card';
+                div.innerHTML = `
+                    <div class="gacha-info">
+                        <h4>${g.name}</h4>
+                        <p>${g.desc}</p>
+                        <p style="color: #d4a373; font-weight: bold; margin-top: 4px;">🪙 ${g.cost} G</p>
+                    </div>
+                    <button class="btn-draw" ${canAfford ? '' : 'disabled'} onclick="drawGacha('${g.id}', ${g.cost})">まわす</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function updateGachaUI() {
+            if (document.getElementById('modal-gacha').classList.contains('active')) {
+                renderGachaList();
             }
-            geometry.attributes.position.needsUpdate = true;
-        });
+        }
 
-        // 画面リサイズ対応
+        window.drawGacha = function(gachaId, cost) {
+            if (state.coins < cost) return;
+            addCoins(-cost);
+
+            // 対象ガチャのスクイーズから抽選
+            const pool = SQUISHIES.filter(s => s.gachaId === gachaId);
+            const prize = pool[Math.floor(Math.random() * pool.length)];
+
+            if (!state.unlocked.includes(prize.id)) {
+                state.unlocked.push(prize.id);
+            }
+
+            equipSquishy(prize.id);
+            closeModal('modal-gacha');
+
+            // ガチャ結果表示
+            document.getElementById('result-icon').textContent = prize.icon;
+            document.getElementById('result-name').textContent = prize.name;
+            openModal('modal-result');
+            playFanfareSound();
+        };
+
+        function renderCollectionList() {
+            const grid = document.getElementById('collection-list');
+            grid.innerHTML = '';
+            SQUISHIES.forEach(item => {
+                const isUnlocked = state.unlocked.includes(item.id);
+                const isEquipped = state.equipped === item.id;
+                
+                const card = document.createElement('div');
+                card.className = `item-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`;
+                card.innerHTML = `
+                    <div class="item-icon">${isUnlocked ? item.icon : '❓'}</div>
+                    <div class="item-name">${isUnlocked ? item.name : '？？？'}</div>
+                `;
+
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        equipSquishy(item.id);
+                        renderCollectionList();
+                    };
+                }
+                grid.appendChild(card);
+            });
+        }
+
+        function equipSquishy(id) {
+            state.equipped = id;
+            const itemData = SQUISHIES.find(s => s.id === id);
+            createSquishyMesh(itemData);
+        }
+
+        // 初期化実行
+        equipSquishy('pink_sphere');
+
+        // リサイズ対応
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // --- 6. アニメーションループ ---
+        // アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
-
-            // 触っていない時は少しゆらゆらさせる
-            if (!isDragging) {
-                squishy.rotation.y += 0.003;
+            if (currentMesh && !isDragging) {
+                currentMesh.rotation.y += 0.003;
             }
-
             updateDeformation();
             controls.update();
             renderer.render(scene, camera);
         }
-
         animate();
     </script>
 </body>
