@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Squishy Toy - ぷにぷにスクイーズ</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .ui-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        h1 {
+            color: #555;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        }
+
+        p {
+            color: #777;
+            margin: 0;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.6);
+            padding: 6px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            color: #555;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+    </style>
+    <!-- Three.js (3D描画ライブラリ) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls (視点操作ライブラリ) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div class="ui-container">
+        <h1>✨ ぷにぷにスクイーズ ✨</h1>
+        <p>ドラッグして変形！ 離すとモチッと戻るよ</p>
+    </div>
+
+    <div class="controls">
+        <button id="btn-color">🎨 色を変える</button>
+        <button id="btn-reset">🔄 かたちを戻す</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- 1. 基本セットアップ ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 0.8;
+
+        // --- 2. ライティング（照明） ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        const pointLight = new THREE.PointLight(0xffb6c1, 0.5, 10);
+        pointLight.position.set(-3, -3, 2);
+        scene.add(pointLight);
+
+        // --- 3. スクイーズ（メッシュ）の作成 ---
+        // 高密度な球体ジオメトリ（頂点を多くして柔らかくする）
+        const geometry = new THREE.SphereGeometry(1.2, 64, 64);
+        
+        // 元の頂点座標と現在の速度データを保持する配列
+        const positionAttr = geometry.attributes.position;
+        const originalPositions = new Float32Array(positionAttr.array.length);
+        const velocities = new Float32Array(positionAttr.array.length);
+
+        for (let i = 0; i < positionAttr.array.length; i++) {
+            originalPositions[i] = positionAttr.array[i];
+            velocities[i] = 0;
+        }
+
+        // ツヤと透明感のあるぷにぷにマテリアル（材質）
+        const colors = [0xff70a6, 0xff9770, 0xffd670, 0xe9ff70, 0x70d6ff, 0xa594f9];
+        let colorIndex = 0;
+
+        const material = new THREE.MeshPhysicalMaterial({
+            color: colors[0],
+            roughness: 0.15,
+            metalness: 0.05,
+            transmission: 0.1, // ほんのり半透明
+            thickness: 0.5,
+            clearcoat: 0.3,    // 表面の光沢
+            clearcoatRoughness: 0.1,
+        });
+
+        const squishy = new THREE.Mesh(geometry, material);
+        squishy.castShadow = true;
+        squishy.receiveShadow = true;
+        scene.add(squishy);
+
+        // 床の影（リアル感アップ）
+        const shadowPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(10, 10),
+            new THREE.ShadowMaterial({ opacity: 0.15 })
+        );
+        shadowPlane.rotation.x = -Math.PI / 2;
+        shadowPlane.position.y = -1.8;
+        shadowPlane.receiveShadow = true;
+        scene.add(shadowPlane);
+
+        // --- 4. 物理演算（弾力・復元力のシミュレーション） ---
+        const damping = 0.88;    // 減衰（空気抵抗的な）
+        const stiffness = 0.08;  // 戻る力（硬さ）
+
+        function updateDeformation() {
+            const positions = geometry.attributes.position.array;
+
+            for (let i = 0; i < positions.length; i += 3) {
+                // 元の位置との差分
+                const dx = originalPositions[i] - positions[i];
+                const dy = originalPositions[i + 1] - positions[i + 1];
+                const dz = originalPositions[i + 2] - positions[i + 2];
+
+                // バネの法則（復元力）
+                velocities[i] += dx * stiffness;
+                velocities[i + 1] += dy * stiffness;
+                velocities[i + 2] += dz * stiffness;
+
+                // 速度の減衰
+                velocities[i] *= damping;
+                velocities[i + 1] *= damping;
+                velocities[i + 2] *= damping;
+
+                // 座標の更新
+                positions[i] += velocities[i];
+                positions[i + 1] += velocities[i + 1];
+                positions[i + 2] += velocities[i + 2];
+            }
+
+            geometry.attributes.position.needsUpdate = true;
+            geometry.computeVertexNormals(); // 影の計算を更新
+        }
+
+        // --- 5. インタラクション（つねる・凹ます操作） ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let isDragging = false;
+        let selectedVertexIndex = null;
+
+        function getIntersection(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+            const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+
+            if (clientX === undefined || clientY === undefined) return null;
+
+            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(squishy);
+            return intersects.length > 0 ? intersects[0] : null;
+        }
+
+        function deformAtPoint(intersectPoint, force = 0.4, radius = 0.8) {
+            const positions = geometry.attributes.position.array;
+            const worldMatrix = squishy.matrixWorld;
+            const localPoint = intersectPoint.clone().applyMatrix4(squishy.matrixWorld.clone().invert());
+
+            for (let i = 0; i < positions.length; i += 3) {
+                const vx = positions[i];
+                const vy = positions[i + 1];
+                const vz = positions[i + 2];
+
+                const dist = Math.sqrt(
+                    (vx - localPoint.x) ** 2 +
+                    (vy - localPoint.y) ** 2 +
+                    (vz - localPoint.z) ** 2
+                );
+
+                if (dist < radius) {
+                    // 触った箇所をへこませる/引っぱる計算
+                    const effect = (1 - dist / radius) * force;
+                    
+                    // 押し込み方向（中心に向かって凹ませる）
+                    const normal = new THREE.Vector3(vx, vy, vz).normalize();
+                    
+                    velocities[i] -= normal.x * effect;
+                    velocities[i + 1] -= normal.y * effect;
+                    velocities[i + 2] -= normal.z * effect;
+                }
+            }
+        }
+
+        // マウス／タッチイベントの登録
+        window.addEventListener('pointerdown', (e) => {
+            const hit = getIntersection(e);
+            if (hit) {
+                isDragging = true;
+                controls.enabled = false; // つまんでいる間はカメラ回転をオフ
+                deformAtPoint(hit.point, 0.5);
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (isDragging) {
+                const hit = getIntersection(e);
+                if (hit) {
+                    deformAtPoint(hit.point, 0.2);
+                }
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            isDragging = false;
+            controls.enabled = true; // カメラ回転を再度有効化
+        });
+
+        // UI ボタンの処理
+        document.getElementById('btn-color').addEventListener('click', () => {
+            colorIndex = (colorIndex + 1) % colors.length;
+            material.color.setHex(colors[colorIndex]);
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            const positions = geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i++) {
+                positions[i] = originalPositions[i];
+                velocities[i] = 0;
+            }
+            geometry.attributes.position.needsUpdate = true;
+        });
+
+        // 画面リサイズ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- 6. アニメーションループ ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 触っていない時は少しゆらゆらさせる
+            if (!isDragging) {
+                squishy.rotation.y += 0.003;
+            }
+
+            updateDeformation();
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
